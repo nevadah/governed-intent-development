@@ -22,7 +22,7 @@ It emerged from a conversation about where AI-assisted development is heading. S
 
 The conversation was sparked by a post on LinkedIn from Jim Honeycutt: https://www.linkedin.com/posts/jimhoneycutt_code-is-no-longer-the-source-of-truth-it-activity-7450305910834454529-FnjW/. The discussion in the comments for that post is robust and worth reviewing.
 
-Several more developed projects are working in adjacent territory: GitHub's Spec Kit, AWS Kiro, and others referenced in the related work section below. This project is not a competitor to those efforts. It is an independent exploration of the same underlying shift, with a particular focus on the governance and verification side of the problem that current tools may leave unaddressed.
+Several more developed projects are working in adjacent territory: GitHub's Spec Kit, AWS Kiro, Tessl, and others referenced in the related work section below. This project is not a competitor to those efforts. It is an independent exploration of the same underlying shift, with a particular focus on the governance and verification side of the problem. When this was first written, that focus was a genuine gap in the available tooling. It is less of one now — Spec Kit and Kiro have both added governance and verification since — and the related work section below says so plainly rather than restating a distinction that has expired.
 
 If you are looking for a production-ready spec-driven development tool, the projects listed above are further along. If you are interested in the ideas here, what Governed Intent Development could look like with a fully governed pipeline, independent compliance verification, and a formal document format, then this project is meant for you. Critique, contributions, and real-world experiments that stress-test these ideas are exactly what this project needs to mature.
 
@@ -34,7 +34,9 @@ One further note: this repository was developed primarily through Claude Code, A
 
 Current AI coding tools have three structural problems:
 
-**1. Intent evaporates.** When a session ends, the reasoning behind the code disappears. Institutional knowledge doesn't accumulate. The next session starts from the code, not from why the code is what it is.
+**1. Intent evaporates.** When a session ends, the reasoning behind the code disappears. The next session starts from the code, not from why the code is what it is.
+
+Agent memory has narrowed this problem since it was first stated — Claude Code and comparable tools now persist learnings across sessions — but it has not closed it, and the distinction matters. What memory retains is what the *agent* inferred: unversioned, unreviewed, invisible to stakeholders, and scoped to one machine or workspace. It is a cache of the assistant's working knowledge. The record a business actually needs to preserve — what was decided, by whom, and which alternatives were rejected — is not something that should live in a store nobody reviews and no one signed off on.
 
 **2. Iteration happens at the wrong level.** When requirements change, AI tools generate new code. But the intent was never captured, so there's nothing to update. The new code reflects the new conversation, not a versioned record of what changed and why.
 
@@ -96,6 +98,8 @@ One intent document should represent one independently deployable or testable un
 
 A useful heuristic: if you cannot describe the unit's complete behavior in the Scenarios section without it becoming unwieldy, the unit is probably too large and should be split.
 
+**A note on context budgets.** This guidance was first written when fitting a document, its generated unit, and a verification pass into a single context was a real constraint. It is not one now. Frontier models run million-token context windows with six-figure output limits, and a feature-scoped unit fits comfortably inside one with room for the compliance check. The heuristic above is therefore conservative rather than aspirational, and a larger unit is defensible if it is genuinely atomic. What now bounds unit size is the cost of regenerating it and a reviewer's ability to hold it in their head — not the model's capacity.
+
 ---
 
 ## Where intent documents live
@@ -126,15 +130,56 @@ The Compliance Agent breaks this circularity. It verifies the implementation aga
 
 ## How this differs from related work
 
-**Spec-driven development** (GitHub Spec Kit, AWS Kiro, MindStudio Remy) — These tools solve the generation problem: write a spec, get code. They do not define a governed workflow, do not enforce that code remains read-only, and do not include a compliance verification step. Generation without governance.
+This field has moved quickly, and several distinctions this project originally claimed no longer hold. What follows is an honest accounting as of September 2026, including the claims that have expired.
+
+**[GitHub Spec Kit](https://github.com/github/spec-kit)** — Reached v1.0.0 in August 2026 and ships continuously. Its workflow now opens with `/speckit.constitution`, which establishes the project's governing principles, and includes `/speckit.clarify`, `/speckit.analyze`, `/speckit.checklist`, and `/speckit.converge` — the last of which assesses an existing codebase against its spec, plan, and tasks. An earlier version of this README asserted that Spec Kit defined no governed workflow and included no compliance verification step. That was true when written and is not true now. Spec Kit also integrates with 30+ coding agents, which is far broader tool support than anything proposed here.
+
+**[AWS Kiro](https://kiro.dev)** — Generally available since May 2026, with credit-based pricing and IDE, CLI, and web surfaces. Its model pairs specs with steering files and background hooks that can run checks after a task completes or require a review step before certain actions. It has since added organization-level governance: security policies enforced fleet-wide, per-user telemetry export, and compliance certification. The distinction worth drawing is that Kiro's governance is largely operational — who may do what, and what gets recorded — where this project's is semantic: is the implementation faithful to the stated intent?
+
+**MindStudio Remy** — Previously listed here as "generation without governance." That was a miscategorization. Remy holds explicitly that the spec remains the source of truth as models improve, which is the same position this project takes. It is a peer, not a contrast.
+
+**[Tessl](https://tessl.io)** — The closest parallel to this project's premise: a spec-centric framework plus a public spec registry, distinguishing spec-produces-code from code-produces-spec as separate operations. Substantially better funded and further along, though the framework was still in limited release as of mid-2026.
+
+**Other work in the space** — BMAD-METHOD (open-source, multi-persona agent workflow), OpenSpec (a propose/implement/archive command model now used as an academic baseline), Google Antigravity (which publishes official spec-driven codelabs, including one combining it with Spec Kit), and Traycer (a commercial plan/execute/verify layer).
 
 **Change Intent Records (CIRs)** — Lightweight records of why a change was made, analogous to ADRs. Useful for the rationale layer of an intent document, but not a full methodology. No workflow, no agents, no behavioral contracts.
 
 **Intent-Driven Development (IDD)** — The term is in use across several contexts, generally meaning "start with intent before writing code." Governed Intent Development is a specific instance of this principle. The "governed" qualifier is the distinguishing characteristic: a formal document format with an enforced lifecycle, staged workflow gates, and an agent pipeline that closes the loop between intent and implementation. Looser interpretations of "intent-driven" share the starting point but not the structure.
 
-The distinguishing combination: **structured intent format + governed workflow + agent pipeline + read-only generated code**, as a single coherent system.
+### What is actually distinctive
+
+Stripped of the claims that have expired, four things remain:
+
+1. **Generated code is read-only.** No other tool surveyed asserts this. Spec Kit and Kiro are spec-*first*: the spec drives generation, but once code exists it is editable and authoritative. This project treats a hand-edit as equivalent to patching a compiled binary.
+2. **Compliance verification independent of the test suite.** `/speckit.converge` assesses code against spec, which is close. The difference is the premise: the Compliance Agent exists specifically because an AI that implements something incorrectly will write tests that confirm the incorrect implementation, so a passing suite is not evidence.
+3. **Two distinct human review seams.** Business review and engineering review ask different questions and are deliberately not performed by the same person. Most tools have one review step, or none.
+4. **A separate adversarial security stage.** Compliance asks whether the code matches what the document declared. Security asks about the properties the document failed to declare. Conflating them means the second question never gets asked.
 
 **On the name:** "Governed Intent Development" was chosen to distinguish this methodology from the broader intent-driven development concept and to surface its defining characteristic — the governance layer. It may change as the methodology matures.
+
+---
+
+## Known objections
+
+This methodology sits at the far end of the spec-driven spectrum, and that end is contested. Birgitta Böckeler's [taxonomy for Thoughtworks](https://www.martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html) distinguishes three levels: *spec-first* (the spec drives initial generation, then the code takes over), *spec-anchored* (spec and code are maintained in step), and *spec-as-source* (humans edit only the spec; generated code is never touched). Governed Intent Development is squarely spec-as-source, and it is worth stating plainly that this is the least-proven of the three.
+
+Anyone evaluating this methodology should weigh the following objections. They are presented as they are argued, not as strawmen.
+
+**"This is Model-Driven Development again."** The most common rebuttal, and not a cheap one — MDD made a structurally identical bet and largely failed. The strongest counterargument is that MDD's generators demanded a complete, formal model, while an LLM tolerates prose and fills the gaps. But that cuts both ways: an LLM filling gaps silently is precisely the failure the Elicitation Agent exists to prevent, and this project has not been tested at a scale where the comparison could be settled. Treat it as an open question.
+
+**"You can't specify everything up front."** Kent Beck's version, [quoted by Martin Fowler](https://martinfowler.com/fragments/2026-01-08.html): writing the whole specification before implementation "encodes the (to me bizarre) assumption that you aren't going to learn anything during implementation that would change the specification." This is correct, and the workflow is built to concede it. The third review seam — a human exercising running software — exists because some requirements are only discoverable from use, and the workflow's Methodology Scope section says so directly. What the methodology insists on is not that learning stops, but that learning is written back into the intent document instead of into the code.
+
+**"Specs drift from code within days."** The recurring practical complaint: an agent hits an undocumented constraint mid-implementation, resolves it inline, and the document is stale immediately. The Intent Maintenance Agent and the read-only rule are the answer, and they are worth exactly as much as their enforcement. A methodology that relies on discipline alone to prevent drift will drift. This is the strongest argument for mechanical enforcement over stated policy.
+
+**"Reviewing markdown is worse than reviewing code."** Review fatigue moves upstream rather than disappearing, and a long intent document can be rubber-stamped as easily as a long diff. Partially conceded. The mitigation worth adopting is risk tiering: not every unit warrants all five agent gates, and forcing the full pipeline onto trivial changes is an efficient way to make reviewers stop reading.
+
+**"The economics don't work."** The clearest public datapoint for an organization running a comparable model is on the order of $1,000/day per engineer in tokens. Regenerating a unit is inherently more expensive than the edit it replaces. Anyone adopting this should price it first.
+
+### What the evidence supports
+
+One finding runs in this project's favor. A [2026 study of citation discipline in spec-driven development](https://arxiv.org/abs/2606.30689) found that requiring generated code to cite the specific requirement it implements enables automated hallucination detection at roughly 86–88% true-positive with no false positives, while uncited conditions were undetectable. That is direct support for the traceability premise underlying the Compliance Agent. The same study found that citation discipline measurably *reduces* output determinism — a real cost, noted here rather than omitted.
+
+The most serious real-world test of the strong form of this thesis is StrongDM's engineering organization, [documented by Simon Willison](https://simonwillison.net/2026/Feb/7/software-factory/), which operates under explicit rules that code must not be written by humans and must not be reviewed by humans. Their verification approach is worth studying: end-to-end scenarios are held outside the codebase as a holdout set, on the reasoning that an agent with access to its own tests will write tests that pass. That is a sharper answer to "how do you verify without reading the code" than anything currently in this repo's workflow.
 
 ---
 
