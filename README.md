@@ -84,7 +84,7 @@ Four AI agents enforce and assist the process:
 | **Security Agent** | After compliance | Performs an adversarial security audit of the generated code, finding vulnerability classes not covered by the compliance check |
 | **Intent Maintenance Agent** | Before any change | Ensures the intent document is updated before code changes; flags breaking changes and conflicts |
 
-See [`agents/`](agents/) for ready-to-use system prompts for each agent.
+See [`agents/`](agents/) for each agent, packaged as a Claude Code subagent with scoped tool access. Four of the five cannot write anything — a compliance agent that can edit the code it is judging is not an independent check, so the constraint is expressed in configuration rather than left to the prompt.
 
 ---
 
@@ -198,7 +198,7 @@ examples/                       # Worked examples
 workflow/                       # The governed workflow
   workflow.md                   # Stage definitions, gates, and handoffs
 
-agents/                         # Agent system prompts
+agents/                         # The five pipeline agents, as Claude Code subagents
   elicitation-agent.md
   review-agent.md
   compliance-agent.md
@@ -207,7 +207,22 @@ agents/                         # Agent system prompts
 
 hooks/                          # Mechanical enforcement of the read-only rule
   protect_generated_code.py     # PreToolUse hook blocking edits to generated code
+
+.claude-plugin/                 # Makes the repo installable as a Claude Code plugin
 ```
+
+---
+
+## Installing it
+
+The agents and the enforcement hook install together:
+
+```
+/plugin marketplace add nevadah/governed-intent-development
+/plugin install governed-intent@governed-intent-development
+```
+
+Everything here also works without the plugin. The agent files are self-contained system prompts usable in any tool that accepts one, the hook is a standalone script, and the template, schema and workflow are just documents.
 
 ---
 

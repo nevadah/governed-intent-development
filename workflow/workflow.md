@@ -203,7 +203,7 @@ This stage catches two distinct problems. First, intent gaps: the implementation
 - `VULNERABILITY` — a statically detectable security defect; blocks completion; routes to intent update + regeneration (if intent gap) or regeneration (if implementation defect)
 - `UNVERIFIABLE` — requires runtime testing, fuzzing, or penetration testing to confirm; does not block completion; documented for pre-production verification
 
-**On model selection:** This stage benefits from models with security research specialization. See [`agents/security-agent.md`](../agents/security-agent.md) for guidance.
+**On model selection:** This stage benefits from models with security research specialization. See [`agents/README.md`](../agents/README.md#a-note-on-model-selection-for-the-security-agent) for guidance.
 
 **Exit gate:** No `VULNERABILITY` findings. `UNVERIFIABLE` items documented and assigned for runtime verification.
 
