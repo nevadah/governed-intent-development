@@ -1,6 +1,6 @@
 ---
 unit: notifications/welcome-email
-version: 0.1.0
+version: 0.2.0
 status: approved
 author: nevada.hamaker
 reviewers:
@@ -207,6 +207,36 @@ observability:
 
 ---
 
+## Security Model
+
+**Threat actors:**
+- An attacker able to publish onto the event bus, forging a `UserRegistered` event to direct a welcome email at an address they choose.
+- An attacker able to replay a legitimate event repeatedly, using the unit as an email amplifier against a real user.
+- An internal caller with access to logs or the dead letter queue, which carry account identifiers and may carry email addresses.
+
+**Trust boundaries:**
+- The `UserRegistered` event is untrusted. It crosses a service boundary and this unit cannot verify who published it. Every field on it is treated as a hint, not a fact.
+- The event's email address field is the sharpest case: it is deliberately ignored. The authoritative address is read from `user/account` using the event's `account_id`. An event carrying a mismatched address therefore cannot redirect mail.
+- The event infrastructure guarantees at-least-once delivery, so duplicate events are expected rather than exceptional. Idempotency is owned here, via the sent record, rather than assumed from the infrastructure.
+
+**Sensitive data handled:**
+- **Email address** — read from `user/account`, passed to `notifications/email-dispatch`, never persisted by this unit, and never written to this unit's own logs. The sent record stores `account_id`, not the address.
+- **Display name** — PII of low sensitivity, obtained from `user/account` at render time and not retained after dispatch.
+- **Dead letter queue payloads** — must carry `account_id` and failure context only. An address in a DLQ payload persists PII in an operational store with a different access model and retention policy than the account record.
+
+**Security responsibilities of this unit:**
+- Resolving the recipient from the account record rather than from the event, which is what makes event spoofing ineffective.
+- Idempotency, so that a replayed event cannot be used to send mail repeatedly to a real user.
+- Bounded retries with a dead letter queue, so that failure is observable rather than silent.
+- Keeping email addresses out of this unit's logs, metrics, and DLQ payloads.
+
+**Explicitly out of scope:**
+- Authentication of event publishers — owned by the event bus. This unit assumes publishers may be hostile and is designed so that a forged event achieves nothing beyond a redundant email to the legitimate account holder.
+- Transport security and provider routing for delivery — owned by `notifications/email-dispatch`.
+- Email content and localization — owned by `notifications/template-renderer`. A template injection vector would be that unit's finding, not this one's.
+- Opt-out and preference enforcement — `user/preferences` is an explicit `must_not_know` boundary; the welcome email is transactional and unconditional on registration.
+---
+
 ## Dependencies and Boundaries
 
 **Depends on:**
@@ -242,3 +272,29 @@ Welcome email is a transactional notification directly tied to the registration 
 
 **Dead letter queue required**
 Silent failure is worse than visible failure for event-driven workflows. If a welcome email cannot be sent after the retry limit, the failure must be observable and actionable. A dead letter queue with alerting provides that visibility.
+
+---
+
+## Changelog
+
+```yaml
+- version: 0.1.0
+  date: 2026-05-08
+  classification: initial
+  changed_by: nevada.hamaker
+  changes: []
+  reason: Initial approved version.
+
+- version: 0.2.0
+  date: 2026-09-13
+  classification: non-breaking
+  trigger: elicitation_report
+  changed_by: nevada.hamaker
+  changes:
+    - "[ADDED] Security Model — event-spoofing and replay threat model, trust boundaries, PII handling, and out-of-scope items"
+  reason: >
+    The Security Model section was added to the intent document template when the
+    security audit stage joined the pipeline, and this document predated it. Without
+    a declared security scope the Security Agent has nothing to audit against and the
+    Elicitation Agent cannot check for missing security scenarios.
+```
