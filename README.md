@@ -150,7 +150,7 @@ This field has moved quickly, and several distinctions this project originally c
 
 Stripped of the claims that have expired, four things remain:
 
-1. **Generated code is read-only.** No other tool surveyed asserts this. Spec Kit and Kiro are spec-*first*: the spec drives generation, but once code exists it is editable and authoritative. This project treats a hand-edit as equivalent to patching a compiled binary.
+1. **Generated code is read-only, and enforced as such.** No other tool surveyed asserts this. Spec Kit and Kiro are spec-*first*: the spec drives generation, but once code exists it is editable and authoritative. This project treats a hand-edit as equivalent to patching a compiled binary, and ships a [`PreToolUse` hook](hooks/) that blocks the edit rather than asking an agent not to make it.
 2. **Compliance verification independent of the test suite.** `/speckit.converge` assesses code against spec, which is close. The difference is the premise: the Compliance Agent exists specifically because an AI that implements something incorrectly will write tests that confirm the incorrect implementation, so a passing suite is not evidence.
 3. **Two distinct human review seams.** Business review and engineering review ask different questions and are deliberately not performed by the same person. Most tools have one review step, or none.
 4. **A separate adversarial security stage.** Compliance asks whether the code matches what the document declared. Security asks about the properties the document failed to declare. Conflating them means the second question never gets asked.
@@ -169,7 +169,7 @@ Anyone evaluating this methodology should weigh the following objections. They a
 
 **"You can't specify everything up front."** Kent Beck's version, [quoted by Martin Fowler](https://martinfowler.com/fragments/2026-01-08.html): writing the whole specification before implementation "encodes the (to me bizarre) assumption that you aren't going to learn anything during implementation that would change the specification." This is correct, and the workflow is built to concede it. The third review seam — a human exercising running software — exists because some requirements are only discoverable from use, and the workflow's Methodology Scope section says so directly. What the methodology insists on is not that learning stops, but that learning is written back into the intent document instead of into the code.
 
-**"Specs drift from code within days."** The recurring practical complaint: an agent hits an undocumented constraint mid-implementation, resolves it inline, and the document is stale immediately. The Intent Maintenance Agent and the read-only rule are the answer, and they are worth exactly as much as their enforcement. A methodology that relies on discipline alone to prevent drift will drift. This is the strongest argument for mechanical enforcement over stated policy.
+**"Specs drift from code within days."** The recurring practical complaint: an agent hits an undocumented constraint mid-implementation, resolves it inline, and the document is stale immediately. The Intent Maintenance Agent and the read-only rule are the answer, and they are worth exactly as much as their enforcement — a methodology that relies on discipline alone to prevent drift will drift. This is the objection that motivated [`hooks/`](hooks/), which blocks the inline fix at the moment it is attempted rather than asking for restraint. The hook is not total, and its limits are documented rather than glossed.
 
 **"Reviewing markdown is worse than reviewing code."** Review fatigue moves upstream rather than disappearing, and a long intent document can be rubber-stamped as easily as a long diff. Partially conceded. The mitigation worth adopting is risk tiering: not every unit warrants all five agent gates, and forcing the full pipeline onto trivial changes is an efficient way to make reviewers stop reading.
 
@@ -204,6 +204,9 @@ agents/                         # Agent system prompts
   compliance-agent.md
   security-agent.md
   maintenance-agent.md
+
+hooks/                          # Mechanical enforcement of the read-only rule
+  protect_generated_code.py     # PreToolUse hook blocking edits to generated code
 ```
 
 ---

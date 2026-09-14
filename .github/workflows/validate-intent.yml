@@ -8,6 +8,7 @@ on:
       - 'intent/**'
       - 'schema/**'
       - 'scripts/validate-intent.py'
+      - 'hooks/**'
   pull_request:
 
 jobs:
@@ -26,3 +27,6 @@ jobs:
 
       - name: Validate intent document frontmatter
         run: python scripts/validate-intent.py
+
+      - name: Test the generated-code protection hook
+        run: python hooks/test_protect_generated_code.py

@@ -102,6 +102,8 @@ The workflow defines the governance model for the entire methodology. Changes he
 
 ## What this repo is not the right place for
 
-- **Implementation of the tooling** — agent implementations, schema validators, CI integrations, and IDE plugins are out of scope for this repo. The repo defines the methodology; tooling lives elsewhere.
+- **Product tooling** — an IDE plugin, a hosted service, or a general-purpose intent authoring application is out of scope. The repo defines the methodology.
+
+  The boundary moved once and is worth stating precisely. Enforcement mechanisms are *in* scope: the schema validator, the read-only hook in `hooks/`, and the CI gates are part of the methodology, because a governance rule that cannot be enforced is a suggestion. If a contribution makes a stated rule mechanical, it belongs here. If it builds a product around the methodology, it does not.
 - **Project-specific adaptations** — if you are adapting this methodology for a specific tech stack or domain, that belongs in your own project. Contributions here should apply broadly.
 - **Debate about whether this approach is valid** — issues and PRs are for improving the methodology as defined, not for relitigating its premises.
