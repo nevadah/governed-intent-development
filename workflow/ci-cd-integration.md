@@ -2,19 +2,22 @@
 
 ## Overview
 
-The Governed Intent Development workflow has three CI gates. One runs on intent documents; two run on generated code. Together they enforce the methodology's core constraints automatically: intent must be valid and approved before code exists, generated code must satisfy its intent, and generated code must pass an adversarial security audit before it merges.
+The Governed Intent Development workflow has four CI gates. One runs on intent documents; three run on generated code. Together they enforce the methodology's core constraints automatically: intent must be valid before code exists, it must be approved before that code can merge, generated code must satisfy its intent, and generated code must pass an adversarial security audit.
+
+All four are implemented in [`scripts/`](../scripts/). The first two need nothing but Python; the last two call a model.
 
 ---
 
-## The three CI gates
+## The four CI gates
 
 | Gate | Trigger | What it checks | Blocks merge? |
 |---|---|---|---|
 | **Intent document validation** | PR touching `intent/` or `examples/` | Frontmatter parses and conforms to schema | Yes |
+| **Intent document status** | PR containing generated implementation | Every changed unit has an intent document in `approved` status | Yes |
 | **Compliance check** | PR containing generated implementation | Implementation satisfies the intent document | Yes (FAIL); No (UNVERIFIABLE) |
 | **Security audit** | PR containing generated implementation | Implementation has no statically detectable vulnerabilities | Yes (VULNERABILITY); No (UNVERIFIABLE) |
 
-These are distinct checks for distinct failures. Schema validation catches structural problems. The compliance check catches semantic divergence from declared intent. The security audit catches vulnerability classes that are not declared in the intent document — the implementation may correctly reflect the intent while still being insecure.
+These are distinct checks for distinct failures. Schema validation catches structural problems. The status check catches code that reached the merge boundary without an approved document behind it. The compliance check catches semantic divergence from declared intent. The security audit catches vulnerability classes that are not declared in the intent document — the implementation may correctly reflect the intent while still being insecure.
 
 ---
 
@@ -27,6 +30,8 @@ Validates that every intent document in the repository has well-formed frontmatt
 **Gate behavior:** Fails the check and blocks merge if any document fails schema validation.
 
 **Reference implementation:** This repository uses this gate. See [`.github/workflows/validate-intent.yml`](../.github/workflows/validate-intent.yml) and [`scripts/validate-intent.py`](../scripts/validate-intent.py) for a working example.
+
+The other three gates are implemented in [`scripts/`](../scripts/) and wired together in [`intent-gates.example.yml`](intent-gates.example.yml), which is an example rather than an active workflow because this repository defines the methodology and generates no code — there is nothing here for them to check.
 
 ---
 
@@ -41,7 +46,15 @@ Invokes the Compliance Agent against the generated implementation and its corres
 - `UNVERIFIABLE` items — surface as annotations or warnings, do not block merge. These require runtime verification (load testing, security scanning) that static analysis cannot provide.
 - `PASS` result — check succeeds.
 
-**How to invoke:** The Compliance Agent is an LLM-based check. In a GitHub Actions context, run it as a step that calls the Anthropic API with the intent document and implementation as inputs, then parses the resulting compliance report. The API key should be stored as a repository secret.
+**How to invoke:** [`scripts/run_intent_gate.py`](../scripts/run_intent_gate.py) runs the agent headlessly and exits non-zero on `FAIL`:
+
+```bash
+python scripts/run_intent_gate.py compliance     --intent intent/auth/password-reset.md     --implementation src/auth/password-reset
+```
+
+It reads the agent's system prompt from [`agents/compliance-agent.md`](../agents/compliance-agent.md), invokes `claude -p` with read-only tools, prints the report, and parses its `Result` line for the gate decision. The API key is supplied as `ANTHROPIC_API_KEY` from a repository secret.
+
+The read-only tool restriction is load-bearing rather than defensive: an agent that can edit the implementation it is judging is not an independent check. See [`workflow/intent-gates.example.yml`](intent-gates.example.yml) for a complete workflow.
 
 **Surfacing findings:** Post the compliance report as a PR comment or job summary so reviewers can see the specific findings without reading raw CI logs. UNVERIFIABLE items should be visible but clearly labeled as not blocking.
 
@@ -58,7 +71,15 @@ Invokes the Security Agent against the generated implementation and its correspo
 - `UNVERIFIABLE` items — surface as annotations or warnings, do not block merge. Document for pre-production runtime verification or penetration testing.
 - `PASS` result — check succeeds.
 
-**On model selection:** If a model with security research specialization is available in your environment, use it for this check rather than the general-purpose model used for compliance. See [`agents/security-agent.md`](../agents/security-agent.md) for details.
+**How to invoke:** The same runner, with the `security` gate:
+
+```bash
+python scripts/run_intent_gate.py security     --intent intent/auth/password-reset.md     --implementation src/auth/password-reset
+```
+
+It exits non-zero on `FINDINGS`. Run it only after the compliance gate passes — auditing an implementation that does not yet match its intent document wastes the audit.
+
+**On model selection:** If a model with security research specialization is available in your environment, use it for this check rather than the general-purpose model used for compliance; pass it with `--model`. See [`agents/README.md`](../agents/README.md#a-note-on-model-selection-for-the-security-agent) for details.
 
 **Surfacing findings:** Post the security audit report as a PR comment or job summary. VULNERABILITY findings with intent gaps should be clearly identified — they require an intent document update before regeneration, not just a re-run of generation.
 
@@ -68,11 +89,19 @@ Invokes the Security Agent against the generated implementation and its correspo
 
 A CI check can verify that every implementation file being merged has a corresponding intent document in `approved` status. This prevents generated code from reaching the main branch when its intent document is still `draft` or `review`.
 
-**Pattern:** For each implementation file changed in a PR, locate the corresponding intent document by path convention (`src/auth/password-reset/` → `intent/auth/password-reset.md`) and assert that its `status` field is `approved`.
+**Implementation:** [`scripts/check_intent_status.py`](../scripts/check_intent_status.py). For each implementation unit changed in a PR it resolves the corresponding intent document by path convention (`src/auth/password-reset/` → `intent/auth/password-reset.md`) and asserts that its `status` field is `approved`:
+
+```bash
+python scripts/check_intent_status.py src/auth/password-reset
+```
+
+Projects that map differently override the roots with `--implementation-root` and `--intent-root`.
 
 **When to run:** On any PR containing files in the implementation directory.
 
 **Gate behavior:** Blocks merge if a corresponding intent document is missing or not in `approved` status.
+
+This gate needs no model and no API key, which makes it the one to adopt first. It is also the durable backstop for the [read-only hook](../hooks/): the hook governs agent behavior inside a session, while this check governs what reaches the merge boundary regardless of how it got there.
 
 This check enforces at the merge boundary what the workflow enforces by process: code generation cannot begin until the intent document is approved.
 
@@ -85,8 +114,9 @@ For a repository using this methodology, the following branch protection rules o
 ```
 Require status checks to pass before merging:
   - Intent document validation
-  - Compliance check (once implemented)
-  - Security audit (once implemented)
+  - Intent document status
+  - Compliance check
+  - Security audit
 
 Require branches to be up to date before merging: Yes
 Do not allow bypassing the above settings: Yes

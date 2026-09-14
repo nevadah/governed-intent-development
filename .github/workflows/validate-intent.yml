@@ -30,3 +30,8 @@ jobs:
 
       - name: Test the generated-code protection hook
         run: python hooks/test_protect_generated_code.py
+
+      - name: Test the CI gate scripts
+        run: |
+          python scripts/test_check_intent_status.py
+          python scripts/test_run_intent_gate.py
