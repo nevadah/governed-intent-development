@@ -1,14 +1,16 @@
 # Agents
 
-The five agents in the Governed Intent Development pipeline. Each file is a Claude Code subagent: YAML frontmatter declaring its name, when to use it, and which tools it may touch, followed by the system prompt itself.
+The five agents in the Governed Intent Development pipeline. Each file is a self-contained system prompt, preceded by a few lines of YAML frontmatter declaring the agent's name, when to use it, and which tools it may touch.
 
-| Agent | File | Workflow stage | Tools |
+The prompt is the substance and works anywhere you can set one. The frontmatter is additive: Claude Code reads it to register the file as a subagent, other tools ignore it, and [`scripts/run_intent_gate.py`](../scripts/run_intent_gate.py) strips it when driving the agent through a CLI.
+
+| Agent | File | Workflow stage | Needs to write? |
 |---|---|---|---|
-| Intent Elicitation Agent | [elicitation-agent.md](elicitation-agent.md) | Stage 2 — after authoring | read-only |
-| Intent Review Agent | [review-agent.md](review-agent.md) | Stage 3 — after elicitation | read-only |
-| Compliance Agent | [compliance-agent.md](compliance-agent.md) | Stage 7 — after code generation | read-only |
-| Security Agent | [security-agent.md](security-agent.md) | Stage 8 — after compliance check | read-only |
-| Intent Maintenance Agent | [maintenance-agent.md](maintenance-agent.md) | Pre-change gate — before any revision | read + write |
+| Intent Elicitation Agent | [elicitation-agent.md](elicitation-agent.md) | Stage 2 — after authoring | No |
+| Intent Review Agent | [review-agent.md](review-agent.md) | Stage 3 — after elicitation | No |
+| Compliance Agent | [compliance-agent.md](compliance-agent.md) | Stage 7 — after code generation | No |
+| Security Agent | [security-agent.md](security-agent.md) | Stage 8 — after compliance check | No |
+| Intent Maintenance Agent | [maintenance-agent.md](maintenance-agent.md) | Pre-change gate — before any revision | Yes — intent documents only |
 
 See [workflow/workflow.md](../workflow/workflow.md) for where each agent fits in the full lifecycle.
 
@@ -20,22 +22,26 @@ Four of the five agents cannot write anything. That is not a precaution, it is t
 
 The Security Agent's prompt insists that a finding must never be a patch — "parameterize this query on line 47" is the wrong output, because security findings route back to the intent document and the code changes only through regeneration. Denying it `Edit` and `Write` means that rule no longer depends on the model honoring its instructions. The same argument applies to the Compliance Agent, whose entire value is that it is an independent observer: an observer that can edit the thing it is judging is not independent.
 
-The Intent Maintenance Agent is the one that writes, because producing an updated intent document is its output. It writes documents, not code — and the [read-only hook](../hooks/) stops it reaching generated code even if it tries.
+The Intent Maintenance Agent is the one that writes, because producing an updated intent document is its output. It writes documents, not code — and where the [read-only hook](../hooks/) is available, it is stopped from reaching generated code even if it tries.
+
+Whether the restriction is *enforced* or merely *stated* depends on the tool. That difference is tracked rather than assumed: see [`workflow/runners.md`](../workflow/runners.md).
 
 ---
 
 ## Using them
 
-**In Claude Code.** Copy this directory to `.claude/agents/` in your project, or install the whole methodology as a plugin:
+**In any tool.** Everything below the frontmatter is a system prompt. Paste it into a chat, set it as a custom instruction, or hand it to a CLI. Nothing in these prompts assumes a particular vendor, and the report formats they specify are plain markdown.
+
+**As a CI gate.** [`scripts/run_intent_gate.py`](../scripts/run_intent_gate.py) drives the compliance and security agents headlessly through Claude Code, Codex, Gemini, or a command of your own, reading the prompt from these files so the gate and the interactive agent cannot drift apart. See [workflow/ci-cd-integration.md](../workflow/ci-cd-integration.md) and [workflow/runners.md](../workflow/runners.md).
+
+**In Claude Code.** The frontmatter makes each file a subagent. Copy this directory to `.claude/agents/`, or install the whole methodology in one step:
 
 ```
 /plugin marketplace add nevadah/governed-intent-development
 /plugin install governed-intent@governed-intent-development
 ```
 
-Then invoke a stage by asking for it — "use the elicitation agent on intent/auth/password-reset.md" — or let Claude select the agent from its description.
-
-**In CI or another tool.** Everything below the frontmatter is a self-contained system prompt and works anywhere you can set one, including headless runs. See [workflow/ci-cd-integration.md](../workflow/ci-cd-integration.md) for running the compliance and security agents as merge gates.
+Then invoke a stage by asking for it — "use the elicitation agent on intent/auth/password-reset.md" — or let the tool select the agent from its description.
 
 ---
 
