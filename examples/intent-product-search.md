@@ -1,6 +1,6 @@
 ---
 unit: catalog/product-search
-version: 0.1.0
+version: 0.2.0
 status: approved
 author: nevada.hamaker
 reviewers:
@@ -194,6 +194,35 @@ failure_modes:
 
 ---
 
+## Security Model
+
+<!-- A unit with no authentication and no sensitive data still has a security model.
+     Its threats are availability and inference, not credential theft. -->
+
+**Threat actors:**
+- Unauthenticated external callers, which is every caller — this is a public endpoint and anonymous access is the normal case.
+- Automated scrapers extracting the full catalog through systematic pagination.
+- Callers attempting to make the search backend do disproportionate work through crafted queries, oversized page sizes, or deep pagination.
+
+**Trust boundaries:**
+- Every request parameter is untrusted: `query`, `category_id`, `page`, and `page_size` all arrive from the open internet. `page_size` is clamped rather than rejected, `page` beyond the last page returns an empty list rather than an error, and `category_id` is validated against `catalog/category-taxonomy` rather than passed through to the index.
+- The `query` string is passed to `catalog/product-index`. The boundary contract is that the index accepts it as a search term and never as executable query syntax; this unit must not construct index queries by string interpolation.
+
+**Sensitive data handled:**
+- None. No credentials, no tokens, no PII, no personalized data. This is stated explicitly rather than omitted, because "no sensitive data" is a security property the Security Agent should verify rather than assume — and because the `must_not_know` boundaries exist to keep it true.
+
+**Security responsibilities of this unit:**
+- Response uniformity between authenticated and unauthenticated callers. An authenticated caller must receive byte-identical results for an identical query, so that the response cannot be used to infer anything about the caller's account, cart, or history.
+- Bounded work per request: page size clamped to the documented maximum, deep pagination bounded, no unbounded result sets.
+- Failing closed on an unavailable category taxonomy when a filter was supplied, rather than silently returning unfiltered results that the caller would read as filtered.
+
+**Explicitly out of scope:**
+- Authentication and authorization — there is none to perform; the catalog is public by design.
+- Rate limiting and bot mitigation — enforced at the API gateway, not here. This unit assumes it may still be called at high volume and bounds its per-request cost accordingly.
+- Query sanitization semantics inside the search index — owned by `catalog/product-index`. This unit's responsibility ends at passing the query as data.
+- Price correctness and price personalization — `pricing/personalized-pricing` is an explicit `must_not_know` boundary, and leaking personalized prices through this endpoint would be a boundary violation as well as a privacy one.
+---
+
 ## Dependencies and Boundaries
 
 **Depends on:**
@@ -228,3 +257,29 @@ Caching by query alone would return stale pagination metadata when the catalog c
 
 **Stale results are acceptable, 503 is not**
 A 60-second staleness window is acceptable for a search result. A degraded experience (stale but present results) is preferable to an error when the index is experiencing a slow refresh. However, if the index is entirely unreachable, returning partial or empty results silently would be misleading — 503 is the correct response.
+
+---
+
+## Changelog
+
+```yaml
+- version: 0.1.0
+  date: 2026-05-08
+  classification: initial
+  changed_by: nevada.hamaker
+  changes: []
+  reason: Initial approved version.
+
+- version: 0.2.0
+  date: 2026-09-13
+  classification: non-breaking
+  trigger: elicitation_report
+  changed_by: nevada.hamaker
+  changes:
+    - "[ADDED] Security Model — threat actors, trust boundaries, the explicit absence of sensitive data, and out-of-scope items"
+  reason: >
+    The Security Model section was added to the intent document template when the
+    security audit stage joined the pipeline, and this document predated it. Without
+    a declared security scope the Security Agent has nothing to audit against and the
+    Elicitation Agent cannot check for missing security scenarios.
+```
