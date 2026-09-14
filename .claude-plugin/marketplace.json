@@ -1,0 +1,14 @@
+{
+  "name": "governed-intent-development",
+  "owner": {
+    "name": "Nevada Hamaker",
+    "url": "https://github.com/nevadah"
+  },
+  "plugins": [
+    {
+      "name": "governed-intent",
+      "source": "./",
+      "description": "The five-agent Governed Intent Development pipeline — elicitation, intent review, compliance, security audit and intent maintenance — plus a PreToolUse hook that blocks manual edits to generated code."
+    }
+  ]
+}
