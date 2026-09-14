@@ -40,7 +40,7 @@ Methodology changes benefit from discussion before implementation. Wait for at l
 
 ### 3. Branch and implement
 
-Branch from an up-to-date `master`. Use a descriptive branch name that reflects what is changing:
+Branch from an up-to-date `main`. Use a descriptive branch name that reflects what is changing:
 
 ```
 examples/order-fulfillment

@@ -1,41 +1,10 @@
-# CLAUDE.md — intent-driven-dev
+# CLAUDE.md
 
-Read `WORKING_STYLE.md` at session start. It contains cross-project preferences that apply here.
+@AGENTS.md
 
----
+Project context, repo structure, environment notes and methodology constraints live in `AGENTS.md`, imported above. It is the cross-tool standard and other agents read it natively; Claude Code does not, hence the import. Keep instructions there rather than here so the two cannot drift apart.
 
-## Project
-
-A methodology and tooling framework for treating human intent as the source of truth in software development, with generated code as a downstream artifact. This repo contains the specification, schema, templates, examples, and agent prompts that define the methodology.
-
-There is no build, no test suite, and no linter. Quality gates from WORKING_STYLE.md still apply to documentation: audit for staleness before any push.
-
----
-
-## Repo Structure
-
-```
-schema/               # JSON Schema definitions for structured formats
-templates/            # Blank templates for authors to fill in
-examples/             # Worked examples demonstrating the format
-```
-
----
-
-## Environment Note
-
-The `gh` CLI and `bd` (Beads) may not be on PATH in bash sessions. Prepend both before use:
-
-```bash
-export PATH="$PATH:/c/Program Files/GitHub CLI:/c/Users/Nevada/AppData/Local/Programs/bd"
-```
-
----
-
-## Methodology Constraints
-
-This repo follows the methodology it defines. Intent documents for the repo's own components live in `examples/` and must be kept current. The repo itself is the canonical demonstration that the methodology is self-applicable.
-
+Claude-specific configuration lives in `.claude/settings.json` and `.claude-plugin/`.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker

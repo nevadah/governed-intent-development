@@ -1,16 +1,56 @@
-# Agent Instructions
+# Agent Instructions — governed-intent-development
 
-This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
+Read `WORKING_STYLE.md` at session start. It contains cross-project preferences that apply here.
 
-## Quick Reference
+---
+
+## Project
+
+A methodology and tooling framework for treating human intent as the source of truth in software development, with generated code as a downstream artifact. This repo contains the specification, schema, templates, examples, agent definitions, and the enforcement mechanisms that make the methodology's rules mechanical rather than advisory.
+
+There is no build and no linter. There is a small test suite covering the enforcement hook and the CI gate scripts — run it before any push:
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work atomically
-bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
+python scripts/validate-intent.py
+python scripts/test_check_intent_status.py
+python scripts/test_run_intent_gate.py
+python hooks/test_protect_generated_code.py
 ```
+
+Quality gates from WORKING_STYLE.md also apply to documentation: audit for staleness before any push. This repo makes claims about other projects and about the state of the tooling, and those claims expire.
+
+---
+
+## Repo Structure
+
+```
+schema/               # JSON Schema for intent document frontmatter
+templates/            # Blank templates for authors to fill in
+examples/             # Worked examples demonstrating the format
+workflow/             # Stage definitions, gates, dependency and CI policy
+agents/               # The five pipeline agents, as Claude Code subagents
+hooks/                # PreToolUse enforcement of the read-only rule
+scripts/              # CI gates: schema, intent status, compliance, security
+.claude-plugin/       # Plugin and marketplace manifests
+```
+
+---
+
+## Environment Note
+
+The `gh` CLI and `bd` (Beads) may not be on PATH in bash sessions. Prepend both before use:
+
+```bash
+export PATH="$PATH:/c/Program Files/GitHub CLI:/c/Users/Nevada/AppData/Local/Programs/bd"
+```
+
+---
+
+## Methodology Constraints
+
+This repo defines the methodology; it does not yet fully practise it. `examples/` demonstrates the document *format* against illustrative domains — it does not contain intent documents for this repo's own components, and the code in `hooks/` and `scripts/` was hand-written rather than generated from intent. Retrofitting those is tracked work, not a claim to make in the meantime.
+
+What the repo must hold to: any change to the workflow, template, or schema has downstream effects on the agent definitions and the examples, and those are updated in the same change rather than deferred. A methodology repo whose own artifacts contradict each other is evidence against the methodology.
 
 ## Non-Interactive Shell Commands
 

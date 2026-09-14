@@ -57,9 +57,11 @@ An intent document contains:
 - **Domain semantics** — what the concepts mean in this domain, not just technical descriptions
 - **Quality attributes** — performance thresholds, security constraints, failure modes
 - **Dependencies and boundaries** — what this unit relies on, exposes, and must never know about
+- **Security model** — threat actors, trust boundaries, sensitive data handling, and what is explicitly out of scope
 - **Rationale** — why decisions were made and what alternatives were rejected
+- **Changelog** — what changed at each version, why, and whether the change corrected a misspecification
 
-See [`templates/intent-document.md`](templates/intent-document.md) for the blank template and [`schema/intent-document.schema.json`](schema/intent-document.schema.json) for the machine-readable frontmatter schema. See [`examples/intent-password-reset.md`](examples/intent-password-reset.md) for a complete worked example.
+See [`templates/intent-document.md`](templates/intent-document.md) for the blank template and [`schema/intent-document.schema.json`](schema/intent-document.schema.json) for the machine-readable frontmatter schema. [`examples/`](examples/) contains three complete worked documents: an [email-based password reset](examples/intent-password-reset.md), a [read-only public API](examples/intent-product-search.md), and an [event-driven notification](examples/intent-welcome-email.md).
 
 ### 2. A governed workflow
 
@@ -74,7 +76,7 @@ See [`workflow/workflow.md`](workflow/workflow.md) for the full stage-by-stage d
 
 ### 3. An agent pipeline
 
-Four AI agents enforce and assist the process:
+Five AI agents enforce and assist the process:
 
 | Agent | Stage | Role |
 |---|---|---|
@@ -189,14 +191,20 @@ The most serious real-world test of the strong form of this thesis is StrongDM's
 schema/                         # JSON Schema for intent document frontmatter
   intent-document.schema.json
 
-templates/                      # Blank template for authoring intent documents
+templates/                      # Blank templates for authoring
   intent-document.md
+  project-config.md             # Project-wide generation context
 
 examples/                       # Worked examples
-  intent-password-reset.md      # Complete example: email-based password reset
+  intent-password-reset.md      # Email-based password reset
+  intent-product-search.md      # Read-only public API
+  intent-welcome-email.md       # Event-driven notification
 
 workflow/                       # The governed workflow
   workflow.md                   # Stage definitions, gates, and handoffs
+  dependency-propagation.md     # How breaking changes reach dependent units
+  ci-cd-integration.md          # The four CI gates and branch protection
+  intent-gates.example.yml      # Reference workflow for the gates
 
 agents/                         # The five pipeline agents, as Claude Code subagents
   elicitation-agent.md
@@ -233,6 +241,15 @@ Everything here also works without the plugin. The agent files are self-containe
 
 ## Status
 
-Early-stage. The format, workflow, and agent prompts are a first version. They are usable, but expected to evolve as they are applied to real projects. Open questions include the right granularity for intent documents, how breaking changes to intent propagate through a dependency graph, and how this integrates with existing CI/CD tooling.
+Early-stage. The format, workflow, and agents are a first version, usable but expected to evolve as they meet real projects.
 
-Contributions and feedback welcome.
+Two of the original open questions now have answers in the repo: breaking changes to intent are handled in [`workflow/dependency-propagation.md`](workflow/dependency-propagation.md), and CI/CD integration in [`workflow/ci-cd-integration.md`](workflow/ci-cd-integration.md) with runnable gates in [`scripts/`](scripts/).
+
+What remains open:
+
+- **Granularity.** The feature/capability heuristic has not been stress-tested against a real codebase, only against illustrative examples.
+- **Self-application.** This repo defines the methodology but does not yet practise it — the code in `hooks/` and `scripts/` was hand-written, not generated from intent documents. Retrofitting that is the most useful thing anyone could do to test whether the methodology survives contact with its own premises.
+- **Review fatigue at scale.** Whether intent review stays meaningful across hundreds of documents, or degrades into rubber-stamping, is an empirical question nobody has answered.
+- **Cost.** Regenerating rather than patching has a price, and it has not been measured here.
+
+Contributions and feedback welcome — particularly real-world experiments that stress-test these ideas rather than agree with them.
