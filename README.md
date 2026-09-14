@@ -208,6 +208,11 @@ agents/                         # The five pipeline agents, as Claude Code subag
 hooks/                          # Mechanical enforcement of the read-only rule
   protect_generated_code.py     # PreToolUse hook blocking edits to generated code
 
+scripts/                        # The CI gates
+  validate-intent.py            # Schema validation
+  check_intent_status.py        # Every changed unit has an approved intent document
+  run_intent_gate.py            # Runs the compliance and security agents headlessly
+
 .claude-plugin/                 # Makes the repo installable as a Claude Code plugin
 ```
 

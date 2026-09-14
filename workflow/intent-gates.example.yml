@@ -1,0 +1,77 @@
+# Example: compliance and security gates as required status checks.
+#
+# Copy to .github/workflows/intent-gates.yml in a project that uses the
+# methodology. This file lives in workflow/ rather than .github/workflows/
+# because this repository defines the methodology and generates no code — there
+# is nothing here for the gates to check.
+#
+# Requires ANTHROPIC_API_KEY as a repository secret.
+#
+# The path mapping below assumes the recommended convention:
+#   intent/auth/password-reset.md  ->  src/auth/password-reset/
+# If your project maps differently, change resolve_intent_document.
+
+name: Intent Gates
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+
+jobs:
+  gates:
+    name: Compliance and security gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install jsonschema pyyaml
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Identify the changed units
+        id: units
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep '^src/' \
+            | cut -d/ -f1-3 \
+            | sort -u > changed_units.txt
+          echo "count=$(wc -l < changed_units.txt)" >> "$GITHUB_OUTPUT"
+          cat changed_units.txt
+
+      # Gate: every changed implementation must have an approved intent document.
+      # This one needs no API key and should run even if the agent gates are skipped.
+      - name: Verify intent documents are approved
+        run: python scripts/check_intent_status.py --units changed_units.txt
+
+      - name: Compliance gate
+        if: steps.units.outputs.count != '0'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          while read -r unit; do
+            intent="intent/${unit#src/}.md"
+            python scripts/run_intent_gate.py compliance \
+              --intent "$intent" --implementation "$unit"
+          done < changed_units.txt
+
+      # Security runs only after compliance passes: auditing an implementation
+      # that does not yet match its intent document wastes the audit.
+      - name: Security gate
+        if: steps.units.outputs.count != '0'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          while read -r unit; do
+            intent="intent/${unit#src/}.md"
+            python scripts/run_intent_gate.py security \
+              --intent "$intent" --implementation "$unit"
+          done < changed_units.txt
