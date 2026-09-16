@@ -1,8 +1,15 @@
 # Enforcement Hooks
 
-The methodology's load-bearing constraint is that generated code is never hand-edited. Until now that constraint was stated and not enforced: [`workflow/workflow.md`](../workflow/workflow.md) has a "Manual edits attempted? → STOP" branch with nothing behind it, and a rule that depends on discipline is a rule that erodes.
+The methodology's load-bearing constraint is that generated code is never hand-edited. A rule that depends on discipline is a rule that erodes, so it is enforced in two places:
 
-This directory contains the mechanism.
+| Where | What it catches | Works on |
+|---|---|---|
+| **CI** — [`scripts/`](../scripts/) | Anything that reaches the merge boundary, however it got there | Any tool, any agent, any editor |
+| **In the session** — this directory | The edit at the moment it is attempted, before it exists | Tools that let a hook veto an edit |
+
+**If you are choosing one, choose CI.** It is portable, it cannot be argued out of its decision by the agent it is judging, and it catches human edits as well as agent edits. This hook is the fast feedback layer on top: it turns a failed build twenty minutes later into a corrected course immediately, and it tells the agent what to do instead.
+
+This directory contains the in-session half.
 
 ---
 
@@ -72,7 +79,7 @@ Verify the hook with `python hooks/test_protect_generated_code.py`.
 Stage 6 needs to write the very files this hook protects. When the environment variable named by `generation_env` is set to a non-empty value, writes are allowed:
 
 ```bash
-GID_GENERATING=1 claude -p "Generate the implementation for intent/auth/password-reset.md"
+GID_GENERATING=1 <your agent> "Generate the implementation for intent/auth/password-reset.md"
 ```
 
 This is the honest seam in the design. The hook cannot distinguish a generation run from a developer who set the variable to get their edit through, so the escape hatch is process, not mechanism. What it buys is that bypassing the rule is now a deliberate act that appears in shell history and CI configuration, rather than a silent edit that looks like any other commit. Make the variable's use visible: set it in the generation script, never in a shell profile.
@@ -85,6 +92,6 @@ Stated plainly, because a partial control that is believed to be total is worse 
 
 - **Shell writes.** The hook inspects `file_path` on file-editing tools. An agent running `echo x > src/f.py` through `Bash` is not intercepted. Blocking that reliably means parsing arbitrary shell, which is not a thing this hook attempts.
 - **Edits outside the agent.** A developer opening the file in an editor is unaffected. The hook governs agent behavior, not human behavior.
-- **Other agents.** This is Claude Code's hook protocol. Another tool needs its own equivalent.
+- **Other agents.** This implements Claude Code's hook protocol, which is the one surveyed that lets a hook veto a tool call before it runs. Cursor's rules are documented as advisory with no mechanism to block a violation. Codex's execpolicy `.rules` files look like the most promising unexplored lead, and Copilot CLI, Amp, Aider, goose and the rest were not evaluated — their absence here means nobody checked, not that they cannot do it. A port is a welcome contribution.
 
-The durable backstop for all three is CI, not the hook: a check that every implementation file changed in a pull request has a corresponding intent document in `approved` status, and that the compliance agent passes against it. The hook catches the mistake at the moment it is made, in the loop where it is cheapest to correct. CI catches what reaches the merge boundary regardless of how it got there. See [`workflow/ci-cd-integration.md`](../workflow/ci-cd-integration.md).
+The durable backstop for all three is CI, as above: [`check_intent_status.py`](../scripts/check_intent_status.py) asserts every changed unit has an approved intent document, and [`run_intent_gate.py`](../scripts/run_intent_gate.py) runs the compliance and security agents against it. Neither needs this hook, and neither cares which tool wrote the code. See [`workflow/ci-cd-integration.md`](../workflow/ci-cd-integration.md).

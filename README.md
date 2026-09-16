@@ -86,7 +86,7 @@ Five AI agents enforce and assist the process:
 | **Security Agent** | After compliance | Performs an adversarial security audit of the generated code, finding vulnerability classes not covered by the compliance check |
 | **Intent Maintenance Agent** | Before any change | Ensures the intent document is updated before code changes; flags breaking changes and conflicts |
 
-See [`agents/`](agents/) for each agent, packaged as a Claude Code subagent with scoped tool access. Four of the five cannot write anything — a compliance agent that can edit the code it is judging is not an independent check, so the constraint is expressed in configuration rather than left to the prompt.
+See [`agents/`](agents/) for all five. Each is a self-contained system prompt that works in any tool that accepts one, with frontmatter that additionally makes it a Claude Code subagent. Four of the five are given no ability to write anything — a compliance agent that can edit the code it is judging is not an independent check, so where the tool allows it that constraint is configuration rather than a request in the prompt.
 
 ---
 
@@ -152,7 +152,7 @@ This field has moved quickly, and several distinctions this project originally c
 
 Stripped of the claims that have expired, four things remain:
 
-1. **Generated code is read-only, and enforced as such.** No other tool surveyed asserts this. Spec Kit and Kiro are spec-*first*: the spec drives generation, but once code exists it is editable and authoritative. This project treats a hand-edit as equivalent to patching a compiled binary, and ships a [`PreToolUse` hook](hooks/) that blocks the edit rather than asking an agent not to make it.
+1. **Generated code is read-only, and enforced as such.** No other tool surveyed asserts this. Spec Kit and Kiro are spec-*first*: the spec drives generation, but once code exists it is editable and authoritative. This project treats a hand-edit as equivalent to patching a compiled binary, and enforces it twice: [in CI](scripts/) on any tool, and [in the session](hooks/) on tools that let a hook veto an edit before it happens.
 2. **Compliance verification independent of the test suite.** `/speckit.converge` assesses code against spec, which is close. The difference is the premise: the Compliance Agent exists specifically because an AI that implements something incorrectly will write tests that confirm the incorrect implementation, so a passing suite is not evidence.
 3. **Two distinct human review seams.** Business review and engineering review ask different questions and are deliberately not performed by the same person. Most tools have one review step, or none.
 4. **A separate adversarial security stage.** Compliance asks whether the code matches what the document declared. Security asks about the properties the document failed to declare. Conflating them means the second question never gets asked.
@@ -206,37 +206,44 @@ workflow/                       # The governed workflow
   ci-cd-integration.md          # The four CI gates and branch protection
   intent-gates.example.yml      # Reference workflow for the gates
 
-agents/                         # The five pipeline agents, as Claude Code subagents
+agents/                         # The five pipeline agents, as portable system prompts
   elicitation-agent.md
   review-agent.md
   compliance-agent.md
   security-agent.md
   maintenance-agent.md
 
-hooks/                          # Mechanical enforcement of the read-only rule
-  protect_generated_code.py     # PreToolUse hook blocking edits to generated code
+hooks/                          # In-session enforcement of the read-only rule
+  protect_generated_code.py     # Blocks edits to generated code (Claude Code)
 
-scripts/                        # The CI gates
+scripts/                        # The CI gates — enforcement that works on any tool
   validate-intent.py            # Schema validation
   check_intent_status.py        # Every changed unit has an approved intent document
   run_intent_gate.py            # Runs the compliance and security agents headlessly
 
-.claude-plugin/                 # Makes the repo installable as a Claude Code plugin
+.claude-plugin/                 # Optional one-command install for Claude Code
 ```
 
 ---
 
-## Installing it
+## Adopting it
 
-The agents and the enforcement hook install together:
+Nothing here requires a particular AI coding tool. The intent document format, the workflow, the review seams and the five agent definitions are all plain text, and the parts that enforce them are split by how portable they can be.
+
+**The methodology needs no tooling at all.** The schema, the templates, the workflow and the five agent prompts in [`agents/`](agents/) are documents. Every agent file is a self-contained system prompt below its frontmatter — paste it into whatever you use, or point a CLI at it. If you adopt nothing else from this repo, adopt the document format and the two human review seams.
+
+**The CI gates run anywhere.** [`scripts/`](scripts/) holds all four. Schema validation and the approved-status check are plain Python with no model involved, so they hold regardless of which tool generated the code. The compliance and security gates drive an agent CLI — Claude Code, Codex, Gemini, or your own command — and each runner declares whether it can actually enforce read-only file access, because an agent that can edit the code it judges is not an independent check. See [`workflow/runners.md`](workflow/runners.md).
+
+**Blocking the edit as it happens is Claude-only today**, and that is a limitation of the ecosystem rather than a preference. [`hooks/`](hooks/) stops an agent editing generated code at the moment it tries, which requires a tool that lets a hook veto a tool call before it runs. Claude Code exposes one. Of the tools surveyed, Cursor's rules are explicitly advisory with no mechanism to block a violation, and the rest were not evaluated — Codex's execpolicy `.rules` files are the most promising unexplored lead. If you use something else, the CI gates catch the same violation at the merge boundary instead: later, but not weaker, since a merge gate cannot be talked out of its decision by the agent it is judging.
+
+**On Claude Code specifically**, the agents and the hook install in one step:
 
 ```
 /plugin marketplace add nevadah/governed-intent-development
 /plugin install governed-intent@governed-intent-development
 ```
 
-Everything here also works without the plugin. The agent files are self-contained system prompts usable in any tool that accepts one, the hook is a standalone script, and the template, schema and workflow are just documents.
-
+That is a convenience, not the product. A contribution that makes any part of this work on another tool is more valuable than one that deepens the Claude integration.
 ---
 
 ## Status

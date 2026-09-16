@@ -14,6 +14,8 @@ This repo defines a methodology. Contributing means proposing changes to the met
 
 **Proposed changes to agent prompts** — Changes to any file in `agents/` that improve an agent's output quality, fix a prompt that produces incorrect behavior, or add a flag type or issue type not currently covered.
 
+**Support for another tool** — The most valuable contribution currently available. A gate runner for an agent CLI that is not yet supported (see [`workflow/runners.md`](workflow/runners.md)), a port of the read-only hook to another tool's enforcement mechanism, or a correction to a `read_only` level we have recorded wrongly. Making any part of this work somewhere new is worth more than deepening an existing integration.
+
 **Proposed changes to the README or other documentation** — Clarifications, corrections, or additions that improve the repo's accessibility as a public resource.
 
 ---

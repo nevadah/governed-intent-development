@@ -167,7 +167,9 @@ See [`templates/project-config.md`](../templates/project-config.md) for the proj
 
 **The generated code is read-only.** If a developer identifies a problem in the implementation, the correct response is to update the intent document and regenerate — not to edit the code directly. Manual edits break the chain: the code is no longer derived from the intent, the intent no longer reflects the implementation, and the compliance check becomes meaningless.
 
-This is enforced mechanically rather than by convention. A `PreToolUse` hook blocks an agent's attempt to edit a file inside a generated-code root and returns the correct action — update the intent document and regenerate — at the moment the incorrect one is attempted. See [`hooks/`](../hooks/) for the implementation, the Stage 6 escape hatch that lets the generation run itself write, and an honest account of what the hook does not catch. The durable backstop is the CI gate described in [`ci-cd-integration.md`](ci-cd-integration.md); the hook catches the mistake where it is cheapest to correct, CI catches whatever reaches the merge boundary.
+This is enforced mechanically rather than by convention, in two places. The CI gates in [`ci-cd-integration.md`](ci-cd-integration.md) block anything that reaches the merge boundary without an approved intent document behind it, whatever tool produced it and whether an agent or a person made the edit. On tools that allow a hook to veto an edit before it happens, [`hooks/`](../hooks/) additionally catches the attempt in the session and returns the correct action — update the intent document and regenerate — at the moment the wrong one is attempted. That directory also documents the Stage 6 escape hatch that lets the generation run itself write, and what the hook does not catch.
+
+CI is the layer that matters; the hook is the one that makes the correction cheap.
 
 **Exit gate:** Implementation produced. No manual edits applied.
 
