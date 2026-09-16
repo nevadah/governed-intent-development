@@ -5,11 +5,17 @@
 # because this repository defines the methodology and generates no code — there
 # is nothing here for the gates to check.
 #
-# Requires ANTHROPIC_API_KEY as a repository secret.
+# The compliance and security steps below use the default Claude runner and so
+# need ANTHROPIC_API_KEY as a repository secret. To drive them with a different
+# agent CLI, pass --runner (codex, gemini, or custom) and set that tool's key
+# instead. See workflow/runners.md.
+#
+# The first gate needs no model, no key and no agent CLI at all.
 #
 # The path mapping below assumes the recommended convention:
 #   intent/auth/password-reset.md  ->  src/auth/password-reset/
-# If your project maps differently, change resolve_intent_document.
+# If your project maps differently, pass --implementation-root and --intent-root
+# to check_intent_status.py and adjust the shell substitution in the gate steps.
 
 name: Intent Gates
 
@@ -34,7 +40,9 @@ jobs:
       - name: Install dependencies
         run: pip install jsonschema pyyaml
 
-      - name: Install Claude Code
+      # Whichever agent CLI drives the gates. Swap this step and the --runner
+      # flags below together.
+      - name: Install the agent CLI
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Identify the changed units

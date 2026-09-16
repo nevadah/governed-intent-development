@@ -4,7 +4,7 @@
 
 The Governed Intent Development workflow has four CI gates. One runs on intent documents; three run on generated code. Together they enforce the methodology's core constraints automatically: intent must be valid before code exists, it must be approved before that code can merge, generated code must satisfy its intent, and generated code must pass an adversarial security audit.
 
-All four are implemented in [`scripts/`](../scripts/). The first two need nothing but Python; the last two call a model.
+All four are implemented in [`scripts/`](../scripts/). The first two need nothing but Python and no model at all, so they work regardless of which tool generated the code. The last two call a model through whichever agent CLI you point them at — see [`runners.md`](runners.md).
 
 ---
 
@@ -52,9 +52,11 @@ Invokes the Compliance Agent against the generated implementation and its corres
 python scripts/run_intent_gate.py compliance     --intent intent/auth/password-reset.md     --implementation src/auth/password-reset
 ```
 
-It reads the agent's system prompt from [`agents/compliance-agent.md`](../agents/compliance-agent.md), invokes `claude -p` with read-only tools, prints the report, and parses its `Result` line for the gate decision. The API key is supplied as `ANTHROPIC_API_KEY` from a repository secret.
+It reads the agent's system prompt from [`agents/compliance-agent.md`](../agents/compliance-agent.md), invokes an agent CLI with read-only file access, prints the report, and parses its `Result` line for the gate decision.
 
-The read-only tool restriction is load-bearing rather than defensive: an agent that can edit the implementation it is judging is not an independent check. See [`workflow/intent-gates.example.yml`](intent-gates.example.yml) for a complete workflow.
+Any agent CLI can drive the gate — `--runner claude` (the default), `codex`, `gemini`, or `custom` with your own command. The read-only restriction is load-bearing rather than defensive: an agent that can edit the implementation it is judging is not an independent check. Runners that cannot be shown to enforce it are refused unless you pass `--allow-unenforced-read-only`. [`runners.md`](runners.md) records where each runner stands and what that claim is based on.
+
+See [`workflow/intent-gates.example.yml`](intent-gates.example.yml) for a complete workflow.
 
 **Surfacing findings:** Post the compliance report as a PR comment or job summary so reviewers can see the specific findings without reading raw CI logs. UNVERIFIABLE items should be visible but clearly labeled as not blocking.
 
@@ -80,6 +82,8 @@ python scripts/run_intent_gate.py security     --intent intent/auth/password-res
 It exits non-zero on `FINDINGS`. Run it only after the compliance gate passes — auditing an implementation that does not yet match its intent document wastes the audit.
 
 **On model selection:** If a model with security research specialization is available in your environment, use it for this check rather than the general-purpose model used for compliance; pass it with `--model`. See [`agents/README.md`](../agents/README.md#a-note-on-model-selection-for-the-security-agent) for details.
+
+Nothing requires both gates to run on the same tool or the same vendor. Running compliance and security through different models is arguably better than running both through one: the failure mode the security stage exists to catch is a blind spot shared with the model that wrote the code.
 
 **Surfacing findings:** Post the security audit report as a PR comment or job summary. VULNERABILITY findings with intent gaps should be clearly identified — they require an intent document update before regeneration, not just a re-run of generation.
 
